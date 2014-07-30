@@ -18,7 +18,8 @@ define kafka::install::create_log_dirs {
   # This exec ensures we create intermediate directories for directory with the full path $name
   exec { "create-kafka-log-directory-${name}":
     command => "mkdir -p ${name}",
-    path    => ['/bin', '/sbin'],
+    path    => ['/bin', '/sbin', '/usr/bin/', '/usr/sbin/'],
+    unless  => "test -d ${name}",
   }
   ->
   file { "kafka-log-directory-${name}":
