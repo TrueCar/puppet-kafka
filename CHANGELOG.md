@@ -1,8 +1,10 @@
 # Change log
 
-## 2.0.3 (unreleased)
+## 2.0.3 (August 04, 2014)
 
-* TBD
+* IMPROVEMENTS
+
+* Data log directories are only created when needed. (thanks bazilek) [GH-3]
 
 
 ## 2.0.2 (July 01, 2014)
