@@ -7,7 +7,7 @@
 
 ## 2.0.3 (August 04, 2014)
 
-* IMPROVEMENTS
+IMPROVEMENTS
 
 * Data log directories are only created when needed. (thanks bazilek) [GH-3]
 
