@@ -1,0 +1,2 @@
+---
+kafka::embedded_log_dir: '/usr/local/kafka/logs'
