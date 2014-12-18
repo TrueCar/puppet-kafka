@@ -3,8 +3,8 @@
 class kafka::install inherits kafka {
 
   package { 'kafka':
-    ensure  => $package_ensure,
-    name    => $package_name,
+    ensure => $package_ensure,
+    name   => $package_name,
   }
 
   # We primarily (or only?) create this directory because some Kafka scripts have hard-coded references to it.
@@ -17,10 +17,10 @@ class kafka::install inherits kafka {
   }
 
   file { $system_log_dir:
-    ensure  => directory,
-    owner   => $kafka::user,
-    group   => $kafka::group,
-    mode    => '0755',
+    ensure => directory,
+    owner  => $kafka::user,
+    group  => $kafka::group,
+    mode   => '0755',
   }
 
   if $limits_manage == true {
