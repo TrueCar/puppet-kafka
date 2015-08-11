@@ -23,6 +23,7 @@ Table of Contents
     * <a href="#service-management">Service management</a>
     * <a href="#log-files">Log files</a>
 * <a href="#custom-zk-root">Custom ZooKeeper chroot (experimental)</a>
+* <a href="#mirrormaker">Mirror Maker support (optional)</a>
 * <a href="#development">Development</a>
 * <a href="#todo">TODO</a>
 * <a href="#changelog">Change log</a>
@@ -300,6 +301,22 @@ kafka::brokers:
       - 'zkserver2:2181/my_kafka'
 ```
 
+<a name="mirrormaker"></a>
+# Mirror Maker (optional)
+
+We use the <a href="https://github.com/TrueCar/go_kafka_client">stealthy go client</a> because go is fast and stable. This puppet manifest can be
+modified to use the native Kafka mirrormaker scripts as well. To create a mirrormaker config, simply do:
+
+```
+
+class kafka::mirrormaker::rsyslog_x2y {
+  kafka::mirrormaker::generic {$name:
+    fromaz         => 'x',
+    toaz           => 'y',
+    topicwhitelist => 'rsyslog-prod',
+  }
+}
+```
 
 <a name="development"></a>
 
