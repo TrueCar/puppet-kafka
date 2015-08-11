@@ -2,8 +2,8 @@
 #
 class kafka::service inherits kafka {
 
-  if !($kafka::service_ensure in ['present', 'absent']) {
-    fail('service_ensure parameter must be "present" or "absent"')
+  if !($kafka::service_ensure in ['running', 'stopped']) {
+    fail('service_ensure parameter must be "running" or "stopped"')
   }
 
   if $kafka::service_manage == true {
@@ -52,36 +52,24 @@ class kafka::service inherits kafka {
       $kafka_opts_real = ''
     }
 
-    supervisor::service { $kafka::service_name:
-      ensure                 => $kafka::service_ensure,
-      enable                 => $kafka::service_enable,
-      command                => "${kafka::command} ${config}",
-      directory              => '/',
-      environment            => "JMX_PORT=${jmx_port},${kafka_gc_log_opts_real},${kafka_heap_opts_real},${kafka_jmx_opts_real},${kafka_jvm_performance_opts_real},${kafka_log4j_opts_real},${kafka_opts_real}",
-      user                   => $kafka::user,
-      group                  => $kafka::group,
-      autorestart            => $kafka::service_autorestart,
-      startsecs              => $kafka::service_startsecs,
-      stopwait               => $kafka::service_stopsecs,
-      retries                => $kafka::service_retries,
-      stdout_logfile_maxsize => $kafka::service_stdout_logfile_maxsize,
-      stdout_logfile_keep    => $kafka::service_stdout_logfile_keep,
-      stderr_logfile_maxsize => $kafka::service_stderr_logfile_maxsize,
-      stderr_logfile_keep    => $kafka::service_stderr_logfile_keep,
-      stopsignal             => 'INT',
-      stopasgroup            => true,
-      require                => Class['::supervisor'],
-    }
-
-    if $kafka::service_enable == true {
-      exec { 'restart-kafka-broker':
-        command     => "supervisorctl restart ${kafka::service_name}",
-        path        => ['/usr/bin', '/usr/sbin', '/sbin', '/bin'],
-        user        => 'root',
-        refreshonly => true,
-        subscribe   => File[$config],
-        onlyif      => 'which supervisorctl &>/dev/null',
-        require     => Class['::supervisor'],
+    if $kafka::service_manage {
+      if $kafka::service_manager == 'supervisor' {
+        exec { 'restart-kafka-broker':
+          command     => "supervisorctl restart ${kafka::service_name}",
+          path        => ['/usr/bin', '/usr/sbin', '/sbin', '/bin'],
+          user        => 'root',
+          refreshonly => true,
+          subscribe   => File[$config],
+          onlyif      => 'which supervisorctl &>/dev/null',
+          require     => Class['::supervisor'],
+        }
+      } else {
+        service {'kafka-server':
+          ensure     => $kafka::service_ensure,
+          enable     => $kafka::service_enable,
+          hasrestart => true,
+          require    => File['/etc/security/limits.conf'],
+        }
       }
     }
 

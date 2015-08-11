@@ -1,10 +1,48 @@
 # == Class kafka::install
 #
 class kafka::install inherits kafka {
+  class {'yum_repos::hadoop':
+    stage => setup,
+  }
+  
+  include kafka::nrpe
+  include kafka::rsyslog
+  include kafka::client::fat
+  $seed = fqdn_rand(100)	# Use a seed to create the random order for connect strings
 
-  package { 'kafka':
-    ensure => $package_ensure,
-    name   => $package_name,
+  file { '/etc/kafka/zookeeper_connect':
+    ensure  => present,
+    content => inline_template("<%= srand($seed); @zookeeper_connect.sort_by{rand}.join(',') + @zookeeper_chroot %>\n"),
+    require => Package['kafka'],
+  }
+
+  file { '/etc/logrotate.d/kafka':
+    ensure  => present,
+    content => template('kafka/etc/logrotate.d/kafka.erb'),
+    require => Package['kafka'],
+  }
+
+  file { '/etc/init.d/kafka-server':
+    ensure  => present,
+    source  => "puppet:///modules/kafka/etc/init.d/kafka-server",
+    owner   => "root",
+    group   => "root",
+    mode    => 755,
+    require => Package['kafka'],
+    notify  => Exec['chkconfigaddkafka'],
+  }
+
+  exec {'chkconfigaddkafka':
+    command     => '/sbin/chkconfig kafka-server --add',
+    refreshonly => true,
+    notify      => Class['kafka::service'],
+  }
+
+  # RPM is installed in /usr/hdp/<ver>/kafka, we use current below
+  file { $base_dir:
+    ensure  => 'link',
+    target  => '/usr/hdp/current/kafka-broker',
+    require => Package['kafka'],
   }
 
   # We primarily (or only?) create this directory because some Kafka scripts have hard-coded references to it.
@@ -13,14 +51,25 @@ class kafka::install inherits kafka {
     owner   => $kafka::user,
     group   => $kafka::group,
     mode    => '0755',
-    require => Package['kafka'],
+    require => [File[$base_dir],Class['kafka::users']],
   }
 
   file { $system_log_dir:
-    ensure => directory,
-    owner  => $kafka::user,
-    group  => $kafka::group,
-    mode   => '0755',
+    ensure  => directory,
+    owner   => $kafka::user,
+    group   => $kafka::group,
+    mode    => '0755',
+    recurse => true,
+    require => File[$embedded_log_dir], # This is a convenient anchor
+  }
+
+  file { '/app/kafka':
+    ensure  => directory,
+    owner   => $kafka::user,
+    group   => $kafka::group,
+    mode    => '0755',
+    recurse => true,
+    require => File[$embedded_log_dir], # This is a convenient anchor
   }
 
   if $limits_manage == true {

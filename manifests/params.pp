@@ -2,10 +2,15 @@
 #
 class kafka::params {
   $base_dir            = '/opt/kafka' # Base directory under which the Kafka RPM is installed
-  $broker_id           = 0
+  $config_dir          = "/etc/kafka/conf"
+  # Broker id is set to a numeric value of the fqdn mod 2^31 to be an integer
+  # The whole name is used so that broker.id is unique everywhere (in case
+  # we use replication/consolidation, we should never have a collision!)
+  # See an example at https://gist.github.com/lavoiesl/4539865
+  $broker_id           = inline_template("<%= @fqdn.downcase.gsub(/[^a-z0-9]/,'').to_i(36)%(2**31 -1) %>")
   $broker_port         = 9092
   $command             = "${base_dir}/bin/kafka-run-class.sh kafka.Kafka"
-  $config              = "${base_dir}/config/server.properties"
+  $config              = "${config_dir}/server.properties"
   $config_map          = {}
   $config_template     = 'kafka/server.properties.erb'
   # The logs/ sub-dir is hardcoded in some Kafka scripts, and Kafka will also try to create it if it does not exist.
@@ -28,14 +33,15 @@ class kafka::params {
   $limits_manage       = false
   $limits_nofile       = 65536
   $log_dirs            = ['/app/kafka/log']
-  $logging_config      = "${base_dir}/config/log4j.properties"
+  $logging_config      = "${config_dir}/log4j.properties"
   $logging_config_template        = 'kafka/log4j.properties.erb'
   $package_ensure      = 'present'
   $package_name        = 'kafka'
   $service_autorestart = true
   $service_enable      = true
-  $service_ensure      = 'present'
+  $service_ensure      = 'running'
   $service_manage      = true
+  $service_manager     = 'supervisor'
   $service_name        = 'kafka-broker'
   $service_retries     = 999
   $service_startsecs   = 10
@@ -57,6 +63,8 @@ class kafka::params {
   $user_manage         = true
   $user_managehome     = true
   $zookeeper_connect   = ['localhost:2181']
+  $zookeeper_chroot    = '/kafka'
+  $broker_connect      = ['localhost:9092']
 
   case $::osfamily {
     'RedHat': {}

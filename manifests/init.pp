@@ -36,13 +36,67 @@
 # Note: When using a custom namespace/chroot in the ZooKeeper connection string you must manually create the namespace
 #       in ZK first (e.g. in 'localhost:2181/kafka' the namespace is '/kafka').
 #
+# Copied from https://github.com/miguno/puppet-kafka
 class kafka (
   $base_dir            = $kafka::params::base_dir,
   $broker_id           = $kafka::params::broker_id,
   $broker_port         = $kafka::params::broker_port,
   $command             = $kafka::params::command,
   $config              = $kafka::params::config,
-  $config_map          = $kafka::params::config_map,
+  $config_map          = {
+                           'delete.topic.enable'             => 'true',
+                           'controlled.shutdown.enable'      => 'true',
+                           'auto.leader.rebalance.enable'    => 'true',
+                           'num.replica.fetchers'            => 4,
+                           'replica.fetch.max.bytes'         => 1048576,
+                           'replica.high.watermark.checkpoint.interval.ms' => 5000,
+                           'replica.socket.timeout.ms'       => 30000,
+                           'replica.socket.receive.buffer.bytes' => 65536,
+                           'replica.lag.time.max.ms'         => 10000,
+                           'replica.lag.max.messages'        => 4000,
+                           'controller.socket.timeout.ms'    => 30000,
+                           'controller.message.queue.size'   => 10,
+                           'num.partitions'                  => 8,
+                           'message.max.bytes'               => 1000000,
+                           'auto.create.topics.enable'       => $::location ? {
+                             'development'    => 'true',
+                             default          => 'false',
+                           },
+                           'log.index.interval.bytes'        => 4096,
+                           'log.index.size.max.bytes'        => 10485760,
+                           'log.retention.hours'             => $::location ? {
+                             'production' => 168,
+                             default      => 48,
+                           },
+                           # We came up with 120G for production retention with the
+                           # following equation:
+                           # 35T * 3 servers = 105TB total usable in cluster
+                           # 320 partitions * 2 replicas = 640 partitions
+                           # 105TB / 640 partitions = 165GB
+                           # 165GB * .8 = 135GB (do not want to go above 80% disk usage)
+                           # 120GB just for some extra breathing room for topics other
+                           #       than used-images and for unexpected things.
+                           'log.retention.bytes'             => $::location ? {
+                             'production' => 128849018880,
+                             default      => 12884901888,
+                           },
+                           'log.flush.interval.ms'           => 10000,
+                           'log.flush.interval.messages'      => 20000,
+                           'log.flush.scheduler.interval.ms' => 2000,
+                           'log.roll.hours'                  => 168,
+                           'log.retention.check.interval.ms' => 300000,
+                           'log.segment.bytes'               => 1073741824,
+                           'zookeeper.connection.timeout.ms' => 6000,
+                           'zookeeper.sync.time.ms'          => 2000,
+                           'num.io.threads'                  => 8,
+                           'num.network.threads'             => 48,
+                           'socket.request.max.bytes'        => 104857600,
+                           'socket.receive.buffer.bytes'     => 10485760,
+                           'socket.send.buffer.bytes'        => 10485760,
+                           'queued.max.requests'             => 1000,
+                           'fetch.purgatory.purge.interval.requests' => 100,
+                           'producer.purgatory.purge.interval.requests' => 100,
+                         },
   $config_template     = $kafka::params::config_template,
   $embedded_log_dir    = $kafka::params::embedded_log_dir,
   $gc_log_file         = $kafka::params::gc_log_file,
@@ -68,6 +122,7 @@ class kafka (
   $service_enable      = hiera('kafka::service_enable', $kafka::params::service_enable),
   $service_ensure      = $kafka::params::service_ensure,
   $service_manage      = hiera('kafka::service_manage', $kafka::params::service_manage),
+  $service_manager     = 'puppet',
   $service_name        = $kafka::params::service_name,
   $service_retries     = $kafka::params::service_retries,
   $service_startsecs   = $kafka::params::service_startsecs,
@@ -89,10 +144,12 @@ class kafka (
   $user_manage         = hiera('kafka::user_manage', $kafka::params::user_manage),
   $user_managehome     = hiera('kafka::user_managehome', $kafka::params::user_managehome),
   $zookeeper_connect   = $kafka::params::zookeeper_connect,
+  $zookeeper_chroot    = $kafka::params::zookeeper_chroot,
 ) inherits kafka::params {
 
   validate_absolute_path($base_dir)
   if !is_integer($broker_id) { fail('The $broker_id parameter must be an integer number') }
+  if $broker_id < 0 { fail('The $broker_id parameter must be a positive integer number') }
   if !is_integer($broker_port) { fail('The $broker_port parameter must be an integer number') }
   validate_string($command)
   validate_absolute_path($config)
@@ -122,6 +179,7 @@ class kafka (
   validate_bool($service_enable)
   validate_string($service_ensure)
   validate_bool($service_manage)
+  validate_string($service_manager)
   validate_string($service_name)
   if !is_integer($service_retries) { fail('The $service_retries parameter must be an integer number') }
   if !is_integer($service_startsecs) { fail('The $service_startsecs parameter must be an integer number') }
@@ -147,6 +205,9 @@ class kafka (
   validate_bool($user_manage)
   validate_bool($user_managehome)
   validate_array($zookeeper_connect)
+  if ($zookeeper_connect) { # If specified must be absolute
+    validate_absolute_path($base_dir)
+  }
 
   include '::kafka::users'
   include '::kafka::install'
