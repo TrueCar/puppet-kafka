@@ -1,0 +1,8 @@
+/var/log/kafka/kafka.out /var/log/kafka/kafka.err /var/log/kafka/state-change.log /var/log/kafka/kafkaoffsetmonitor.log { 
+	daily 
+	rotate 7 
+	copytruncate 
+	compress 
+	missingok 
+	notifempty 
+} 

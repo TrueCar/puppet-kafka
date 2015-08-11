@@ -1,0 +1,3 @@
+#!/bin/bash
+
+echo There is supposed to be an init script here but it's supplied by the vendor, so we can't redistribute it.
